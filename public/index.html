@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Campus Placement Portal</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <span class="brand-mark">AWS</span>
+      <div class="brand">Campus Placement Portal</div>
+    </div>
+    <button id="logoutBtn" class="ghost hidden">Log out</button>
+  </header>
+
+  <main class="container">
+    <section id="loginView" class="login-layout">
+      <div class="hero">
+        <span class="eyebrow">CAMPUS RECRUITMENT</span>
+        <h1>One portal for students, recruiters and the placement cell.</h1>
+        <p>Manage job approvals, eligibility checks and application tracking in one simple system.</p>
+        <div class="feature-row">
+          <span>✓ Role-based access</span>
+          <span>✓ Server-side eligibility</span>
+          <span>✓ Audit logs</span>
+        </div>
+      </div>
+
+      <div class="card login-card">
+        <h2>Sign in</h2>
+        <p class="muted">Use one of the demo accounts below.</p>
+        <form id="loginForm">
+          <label>Email<input id="email" type="email" required></label>
+          <label>Password<input id="password" type="password" required></label>
+          <button class="primary" type="submit">Sign in</button>
+          <div id="loginError" class="error"></div>
+        </form>
+        <div class="demo-box">
+          <strong>Demo accounts</strong>
+          <button data-demo="student@example.com|student123">Student</button>
+          <button data-demo="recruiter@example.com|recruiter123">Recruiter</button>
+          <button data-demo="admin@example.com|admin123">Admin</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="appView" class="hidden">
+      <div class="welcome">
+        <div>
+          <span id="roleBadge" class="badge"></span>
+          <h1 id="welcomeTitle"></h1>
+          <p id="welcomeText" class="muted"></p>
+        </div>
+      </div>
+
+      <div id="studentPanel" class="hidden">
+        <div class="grid two">
+          <div class="card">
+            <h2>My Profile</h2>
+            <form id="studentProfileForm" class="form-grid">
+              <label>Branch<input id="sBranch" required></label>
+              <label>CGPA<input id="sCgpa" type="number" min="0" max="10" step="0.01" required></label>
+              <label>Graduation year<input id="sYear" type="number" required></label>
+              <label>Resume link<input id="sResume" type="url" placeholder="https://..."></label>
+              <button class="primary" type="submit">Save profile</button>
+            </form>
+            <div id="studentMessage" class="success"></div>
+          </div>
+          <div class="card">
+            <h2>Application pipeline</h2>
+            <div id="studentApplications"></div>
+          </div>
+        </div>
+        <div class="section-heading">
+          <div><h2>Approved openings</h2><p class="muted">Only admin-approved jobs are shown here.</p></div>
+        </div>
+        <div id="jobsList" class="cards"></div>
+      </div>
+
+      <div id="recruiterPanel" class="hidden">
+        <div class="grid two">
+          <div class="card">
+            <h2>Company profile</h2>
+            <form id="companyProfileForm">
+              <label>Company name<input id="cName" required></label>
+              <label>Description<textarea id="cDescription" required></textarea></label>
+              <label>Website<input id="cWebsite" type="url" placeholder="https://..."></label>
+              <button class="primary" type="submit">Save company</button>
+            </form>
+            <div id="companyMessage" class="success"></div>
+          </div>
+          <div class="card">
+            <h2>Create a job</h2>
+            <form id="jobForm">
+              <label>Job title<input id="jTitle" required></label>
+              <label>Description<textarea id="jDescription" required></textarea></label>
+              <label>Minimum CGPA<input id="jCgpa" type="number" min="0" max="10" step="0.1" required></label>
+              <label>Allowed departments <span class="hint">(comma separated)</span><input id="jDepartments" placeholder="Computer Science,Information Technology" required></label>
+              <label>Graduation year<input id="jYear" type="number" required></label>
+              <button class="primary" type="submit">Submit job for approval</button>
+            </form>
+            <div id="jobMessage" class="success"></div>
+          </div>
+        </div>
+        <div class="section-heading"><div><h2>My jobs</h2></div></div>
+        <div id="recruiterJobs" class="cards"></div>
+        <div class="section-heading"><div><h2>Applicants</h2><p class="muted">Update candidate status as hiring progresses.</p></div></div>
+        <div id="applicants" class="table-wrap"></div>
+      </div>
+
+      <div id="adminPanel" class="hidden">
+        <div class="grid two">
+          <div class="card">
+            <h2>Company approvals</h2>
+            <div id="companyApprovals"></div>
+          </div>
+          <div class="card">
+            <h2>Job approvals</h2>
+            <div id="jobApprovals"></div>
+          </div>
+        </div>
+        <div class="section-heading"><div><h2>Administrative action log</h2><p class="muted">Every approval/rejection is recorded with reviewer and timestamp.</p></div></div>
+        <div id="adminLogs" class="table-wrap"></div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast"></div>
+  <script src="/app.js"></script>
+</body>
+</html>
