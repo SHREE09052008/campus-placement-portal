@@ -7,6 +7,20 @@ const path = require("path");
 const app = express();
 const PORT = process.env.PORT || 3000;
 const db = new Database("placement.db");
+const branches = [
+  "Computer Science", "Information Technology", "Electronics",
+  "Electrical Engineering", "Mechanical Engineering", "Civil Engineering",
+  "Data Science", "Artificial Intelligence", "Chemical Engineering"
+];
+const applicationStatuses = [
+  "Applied", "Under Review", "Shortlisted", "Aptitude Test",
+  "Technical Interview", "HR Interview", "Selected", "Offer Accepted",
+  "Offer Declined", "Rejected", "Withdrawn"
+];
+
+function validGraduationYear(year) {
+  return Number.isInteger(year) && year >= 2000 && year <= new Date().getFullYear() + 10;
+}
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -209,8 +223,70 @@ app.post("/api/login", (req, res) => {
   res.json({ message: "Logged in.", user: req.session.user });
 });
 
+app.post("/api/register", (req, res) => {
+  const { name, email, password, role } = req.body;
+  const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+  const cleanName = typeof name === "string" ? name.trim() : "";
+  if (!cleanName || cleanName.length > 100
+      || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)
+      || normalizedEmail.length > 254
+      || typeof password !== "string" || password.length < 8) {
+    return res.status(400).json({ error: "Enter a valid name, email, and password with at least 8 characters." });
+  }
+  if (!["student", "recruiter"].includes(role)) {
+    return res.status(400).json({ error: "Choose a valid account type." });
+  }
+
+  let studentDetails;
+  if (role === "student") {
+    const cgpa = Number(req.body.cgpa);
+    const graduationYear = Number(req.body.graduation_year);
+    if (!branches.includes(req.body.branch)
+        || !Number.isFinite(cgpa) || cgpa < 0 || cgpa > 10
+        || !validGraduationYear(graduationYear)) {
+      return res.status(400).json({ error: "Enter a valid branch, CGPA, and graduation year." });
+    }
+    studentDetails = { branch: req.body.branch, cgpa, graduationYear };
+  }
+
+  let user;
+  try {
+    const createAccount = db.transaction(() => {
+      const result = db.prepare(
+        "INSERT INTO users (name,email,password_hash,role) VALUES (?,?,?,?)"
+      ).run(cleanName, normalizedEmail, bcrypt.hashSync(password, 10), role);
+      if (studentDetails) {
+        db.prepare(`
+          INSERT INTO students (user_id,branch,cgpa,graduation_year)
+          VALUES (?,?,?,?)
+        `).run(result.lastInsertRowid, studentDetails.branch, studentDetails.cgpa, studentDetails.graduationYear);
+      }
+      return { id: Number(result.lastInsertRowid), name: cleanName, email: normalizedEmail, role };
+    });
+    user = createAccount();
+  } catch (err) {
+    if (err.code === "SQLITE_CONSTRAINT_UNIQUE") {
+      return res.status(409).json({ error: "An account with this email already exists." });
+    }
+    throw err;
+  }
+
+  req.session.regenerate(err => {
+    if (err) return res.status(500).json({ error: "Could not start your session. Please try signing in." });
+    req.session.user = user;
+    req.session.save(saveError => {
+      if (saveError) return res.status(500).json({ error: "Account created, but sign-in failed. Please sign in." });
+      res.status(201).json({ message: "Account created.", user });
+    });
+  });
+});
+
 app.post("/api/logout", (req, res) => {
-  req.session.destroy(() => res.json({ message: "Logged out." }));
+  req.session.destroy(err => {
+    if (err) return res.status(500).json({ error: "Could not log out. Please try again." });
+    res.clearCookie("connect.sid", { path: "/" });
+    res.json({ message: "Logged out." });
+  });
 });
 
 app.get("/api/jobs", requireRole("student"), (req, res) => {
@@ -248,7 +324,10 @@ app.put("/api/student/profile", requireRole("student"), (req, res) => {
   const { branch, cgpa, graduation_year, resume_link } = req.body;
   const numericCgpa = Number(cgpa);
   const year = Number(graduation_year);
-  if (!branch || !Number.isFinite(numericCgpa) || numericCgpa < 0 || numericCgpa > 10 || !Number.isInteger(year)) {
+  if (!validGraduationYear(year)) {
+    return res.status(400).json({ error: "Graduation year must be a whole year between 2000 and 10 years from now." });
+  }
+  if (!branch || !Number.isFinite(numericCgpa) || numericCgpa < 0 || numericCgpa > 10) {
     return res.status(400).json({ error: "Please provide valid profile details." });
   }
   db.prepare(`
@@ -323,13 +402,22 @@ app.post("/api/company/jobs", requireRole("recruiter"), (req, res) => {
   const { title, description, min_cgpa, allowed_departments, graduation_year } = req.body;
   const cgpa = Number(min_cgpa);
   const year = Number(graduation_year);
-  if (!title?.trim() || !description?.trim() || !Number.isFinite(cgpa) || !allowed_departments?.trim() || !Number.isInteger(year)) {
+  const departments = typeof allowed_departments === "string"
+    ? [...new Set(allowed_departments.split(",").map(branch => branch.trim()).filter(Boolean))]
+    : [];
+  if (!validGraduationYear(year)) {
+    return res.status(400).json({ error: "Graduation year must be a whole year between 2000 and 10 years from now." });
+  }
+  if (!title?.trim() || !description?.trim() || !Number.isFinite(cgpa) || cgpa < 0 || cgpa > 10) {
     return res.status(400).json({ error: "Please complete all job fields." });
+  }
+  if (!departments.length || departments.some(branch => !branches.includes(branch))) {
+    return res.status(400).json({ error: "Select at least one valid eligible branch." });
   }
   db.prepare(`
     INSERT INTO jobs (company_id,title,description,min_cgpa,allowed_departments,graduation_year)
     VALUES (?,?,?,?,?,?)
-  `).run(company.id, title.trim(), description.trim(), cgpa, allowed_departments.trim(), year);
+  `).run(company.id, title.trim(), description.trim(), cgpa, departments.join(","), year);
   res.json({ message: "Job submitted for admin approval." });
 });
 
@@ -344,7 +432,7 @@ app.get("/api/company/applications", requireRole("recruiter"), (req, res) => {
   const company = currentCompany(req.session.user.id);
   if (!company) return res.json([]);
   const rows = db.prepare(`
-    SELECT a.id,a.status,a.applied_at,j.title,
+    SELECT a.id,a.job_id,a.status,a.applied_at,j.title,
            u.name AS student_name,u.email,
            s.branch,s.cgpa,s.graduation_year,s.resume_link
     FROM applications a
@@ -359,14 +447,45 @@ app.get("/api/company/applications", requireRole("recruiter"), (req, res) => {
 
 app.put("/api/company/applications/:id/status", requireRole("recruiter"), (req, res) => {
   const company = currentCompany(req.session.user.id);
-  const allowed = ["Applied", "Shortlisted", "Rejected", "Selected"];
-  if (!allowed.includes(req.body.status)) return res.status(400).json({ error: "Invalid status." });
+  if (!company) return res.status(400).json({ error: "Create your company profile first." });
+  if (!applicationStatuses.includes(req.body.status)) return res.status(400).json({ error: "Invalid status." });
   const result = db.prepare(`
     UPDATE applications SET status=?
     WHERE id=? AND job_id IN (SELECT id FROM jobs WHERE company_id=?)
   `).run(req.body.status, req.params.id, company.id);
   if (!result.changes) return res.status(404).json({ error: "Application not found." });
   res.json({ message: "Application status updated." });
+});
+
+app.put("/api/company/applications/bulk-status", requireRole("recruiter"), (req, res) => {
+  const company = currentCompany(req.session.user.id);
+  const { ids, status } = req.body;
+  if (!company) return res.status(400).json({ error: "Create your company profile first." });
+  if (!applicationStatuses.includes(status)) return res.status(400).json({ error: "Invalid status." });
+  if (!Array.isArray(ids) || ids.length === 0 || ids.length > 500
+      || ids.some(id => !Number.isSafeInteger(id) || id < 1)
+      || new Set(ids).size !== ids.length) {
+    return res.status(400).json({ error: "Select between 1 and 500 valid applicants." });
+  }
+
+  const updateApplications = db.transaction(() => {
+    const placeholders = ids.map(() => "?").join(",");
+    const ownedCount = db.prepare(`
+      SELECT COUNT(*) AS count FROM applications
+      WHERE id IN (${placeholders})
+        AND job_id IN (SELECT id FROM jobs WHERE company_id=?)
+    `).get(...ids, company.id).count;
+    if (ownedCount !== ids.length) return null;
+    return db.prepare(`
+      UPDATE applications SET status=?
+      WHERE id IN (${placeholders})
+        AND job_id IN (SELECT id FROM jobs WHERE company_id=?)
+    `).run(status, ...ids, company.id).changes;
+  });
+
+  const updated = updateApplications();
+  if (updated === null) return res.status(404).json({ error: "One or more applicants were not found." });
+  res.json({ message: "Applicant statuses updated.", updated });
 });
 
 app.get("/api/admin/companies", requireRole("admin"), (req, res) => {

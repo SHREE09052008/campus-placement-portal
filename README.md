@@ -5,23 +5,24 @@ A beginner-friendly three-tier, role-based campus recruitment portal built for t
 ## Features
 
 ### Student Applicant
-- Login with a demo account
+- Register as a student or sign in
 - Manage profile: branch, CGPA, graduation year and resume link
 - Browse approved job openings
 - Server-side eligibility checking
 - Apply to eligible jobs
-- Track application status
+- Track application status in a dedicated application pipeline
 
 ### Company Recruiter
-- Create/update company profile
+- Register as a recruiter and manage a separate company profile
 - Create job postings with minimum CGPA and allowed departments
-- View applicants
-- Update application status
+- Filter applicants by opening and branch
+- Update individual or selected applicants in batches through screening, interview, offer and rejection stages
 
 ### Placement Cell Admin
 - Approve/reject companies
 - Approve/reject job postings
 - View administrative audit logs with timestamps and reviewer IDs
+- Admin accounts are not available through public registration
 
 ## Tech Stack
 
@@ -52,7 +53,7 @@ npm start
 
 4. Open http://localhost:3000
 
-The SQLite database is created and seeded automatically on first run.
+The SQLite database is created and seeded automatically on first run. New students provide their branch, CGPA and graduation year during registration; recruiters can complete their company profile after signing up.
 
 ## Important Notes
 

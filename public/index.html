@@ -9,9 +9,17 @@
 <body>
   <header class="topbar">
     <div>
-      <span class="brand-mark">AWS</span>
       <div class="brand">Campus Placement Portal</div>
     </div>
+    <nav id="studentNav" class="page-nav hidden" aria-label="Student navigation">
+      <a href="#dashboard" data-student-page="dashboard">Dashboard</a>
+      <a href="#pipeline" data-student-page="pipeline">Application pipeline</a>
+    </nav>
+    <nav id="recruiterNav" class="page-nav hidden" aria-label="Recruiter navigation">
+      <a href="#dashboard" data-recruiter-page="dashboard">Dashboard</a>
+      <a href="#applicants" data-recruiter-page="applicants">Applicants</a>
+      <a href="#company" data-recruiter-page="company">Company profile</a>
+    </nav>
     <button id="logoutBtn" class="ghost hidden">Log out</button>
   </header>
 
@@ -20,29 +28,63 @@
       <div class="hero">
         <span class="eyebrow">CAMPUS RECRUITMENT</span>
         <h1>One portal for students, recruiters and the placement cell.</h1>
-        <p>Manage job approvals, eligibility checks and application tracking in one simple system.</p>
-        <div class="feature-row">
-          <span>✓ Role-based access</span>
-          <span>✓ Server-side eligibility</span>
-          <span>✓ Audit logs</span>
-        </div>
       </div>
 
       <div class="card login-card">
-        <h2>Sign in</h2>
-        <p class="muted">Use one of the demo accounts below.</p>
-        <form id="loginForm">
+        <section id="signInPanel">
+          <h2>Sign in</h2>
+          <p class="muted">Use one of the demo accounts below.</p>
+          <form id="loginForm">
           <label>Email<input id="email" type="email" required></label>
           <label>Password<input id="password" type="password" required></label>
           <button class="primary" type="submit">Sign in</button>
           <div id="loginError" class="error"></div>
-        </form>
-        <div class="demo-box">
-          <strong>Demo accounts</strong>
-          <button data-demo="student@example.com|student123">Student</button>
-          <button data-demo="recruiter@example.com|recruiter123">Recruiter</button>
-          <button data-demo="admin@example.com|admin123">Admin</button>
-        </div>
+          </form>
+          <div class="demo-box">
+            <strong>Demo accounts</strong>
+            <button data-demo="student@example.com|student123">Student</button>
+            <button data-demo="recruiter@example.com|recruiter123">Recruiter</button>
+            <button data-demo="admin@example.com|admin123">Admin</button>
+          </div>
+          <p class="signup-prompt">New here? <button id="showSignUp" class="text-button" type="button">Create an account</button></p>
+        </section>
+
+        <section id="signUpPanel" class="hidden">
+          <h2>Create your account</h2>
+          <p class="muted">Join the campus placement portal.</p>
+          <form id="signUpForm">
+            <label>Full name<input id="signupName" autocomplete="name" required maxlength="100"></label>
+            <label>Email<input id="signupEmail" type="email" autocomplete="email" required maxlength="254"></label>
+            <label>Password<input id="signupPassword" type="password" autocomplete="new-password" minlength="8" required></label>
+            <label>Account type
+              <select id="signupRole" required>
+                <option value="student">Student</option>
+                <option value="recruiter">Recruiter</option>
+              </select>
+            </label>
+            <div id="signupStudentFields" class="signup-student-fields">
+              <label>Branch
+                <select id="signupBranch" required>
+                  <option value="">Select your branch</option>
+                  <option>Computer Science</option>
+                  <option>Information Technology</option>
+                  <option>Electronics</option>
+                  <option>Electrical Engineering</option>
+                  <option>Mechanical Engineering</option>
+                  <option>Civil Engineering</option>
+                  <option>Data Science</option>
+                  <option>Artificial Intelligence</option>
+                  <option>Chemical Engineering</option>
+                </select>
+              </label>
+              <label>CGPA<input id="signupCgpa" type="number" min="0" max="10" step="0.01" required></label>
+              <label>Graduation year<input id="signupYear" type="number" min="2000" step="1" required></label>
+            </div>
+            <button class="primary" type="submit">Create account</button>
+            <div id="signUpError" class="error" role="alert"></div>
+          </form>
+          <p class="signup-prompt">Already have an account? <button id="showSignIn" class="text-button" type="button">Sign in</button></p>
+        </section>
       </div>
     </section>
 
@@ -56,21 +98,17 @@
       </div>
 
       <div id="studentPanel" class="hidden">
-        <div class="grid two">
+        <div>
           <div class="card">
             <h2>My Profile</h2>
             <form id="studentProfileForm" class="form-grid">
               <label>Branch<input id="sBranch" required></label>
               <label>CGPA<input id="sCgpa" type="number" min="0" max="10" step="0.01" required></label>
-              <label>Graduation year<input id="sYear" type="number" required></label>
+              <label>Graduation year<input id="sYear" type="number" min="2000" max="2036" step="1" required></label>
               <label>Resume link<input id="sResume" type="url" placeholder="https://..."></label>
               <button class="primary" type="submit">Save profile</button>
             </form>
             <div id="studentMessage" class="success"></div>
-          </div>
-          <div class="card">
-            <h2>Application pipeline</h2>
-            <div id="studentApplications"></div>
           </div>
         </div>
         <div class="section-heading">
@@ -79,26 +117,43 @@
         <div id="jobsList" class="cards"></div>
       </div>
 
+      <section id="studentPipelinePage" class="hidden" aria-labelledby="pipelineTitle">
+        <div class="pipeline-heading">
+          <div>
+            <span class="eyebrow">YOUR JOB SEARCH</span>
+            <h2 id="pipelineTitle">Application pipeline</h2>
+            <p class="muted">Track every application and see where you are in the hiring process.</p>
+          </div>
+          <a class="ghost pipeline-back" href="#dashboard" data-student-page="dashboard">Browse openings</a>
+        </div>
+        <div id="pipelineSummary" class="pipeline-summary"></div>
+        <div id="studentApplications" class="pipeline-list"></div>
+      </section>
+
       <div id="recruiterPanel" class="hidden">
         <div class="grid two">
-          <div class="card">
-            <h2>Company profile</h2>
-            <form id="companyProfileForm">
-              <label>Company name<input id="cName" required></label>
-              <label>Description<textarea id="cDescription" required></textarea></label>
-              <label>Website<input id="cWebsite" type="url" placeholder="https://..."></label>
-              <button class="primary" type="submit">Save company</button>
-            </form>
-            <div id="companyMessage" class="success"></div>
-          </div>
           <div class="card">
             <h2>Create a job</h2>
             <form id="jobForm">
               <label>Job title<input id="jTitle" required></label>
               <label>Description<textarea id="jDescription" required></textarea></label>
               <label>Minimum CGPA<input id="jCgpa" type="number" min="0" max="10" step="0.1" required></label>
-              <label>Allowed departments <span class="hint">(comma separated)</span><input id="jDepartments" placeholder="Computer Science,Information Technology" required></label>
-              <label>Graduation year<input id="jYear" type="number" required></label>
+              <fieldset class="branch-picker">
+                <legend>Eligible branches</legend>
+                <div class="branch-options">
+                  <label><input type="checkbox" name="jDepartment" value="Computer Science"> Computer Science</label>
+                  <label><input type="checkbox" name="jDepartment" value="Information Technology"> Information Technology</label>
+                  <label><input type="checkbox" name="jDepartment" value="Electronics"> Electronics</label>
+                  <label><input type="checkbox" name="jDepartment" value="Electrical Engineering"> Electrical Engineering</label>
+                  <label><input type="checkbox" name="jDepartment" value="Mechanical Engineering"> Mechanical Engineering</label>
+                  <label><input type="checkbox" name="jDepartment" value="Civil Engineering"> Civil Engineering</label>
+                  <label><input type="checkbox" name="jDepartment" value="Data Science"> Data Science</label>
+                  <label><input type="checkbox" name="jDepartment" value="Artificial Intelligence"> Artificial Intelligence</label>
+                  <label><input type="checkbox" name="jDepartment" value="Chemical Engineering"> Chemical Engineering</label>
+                </div>
+                <div id="departmentError" class="error"></div>
+              </fieldset>
+              <label>Graduation year<input id="jYear" type="number" min="2000" max="2036" step="1" required></label>
               <button class="primary" type="submit">Submit job for approval</button>
             </form>
             <div id="jobMessage" class="success"></div>
@@ -106,9 +161,51 @@
         </div>
         <div class="section-heading"><div><h2>My jobs</h2></div></div>
         <div id="recruiterJobs" class="cards"></div>
-        <div class="section-heading"><div><h2>Applicants</h2><p class="muted">Update candidate status as hiring progresses.</p></div></div>
-        <div id="applicants" class="table-wrap"></div>
       </div>
+
+      <section id="recruiterCompanyPage" class="hidden" aria-labelledby="companyProfileTitle">
+        <div class="section-heading"><div><h2 id="companyProfileTitle">Company profile</h2><p class="muted">Manage the company details students see with your openings.</p></div></div>
+        <div class="card profile-card">
+          <form id="companyProfileForm">
+            <label>Company name<input id="cName" required></label>
+            <label>Description<textarea id="cDescription" required></textarea></label>
+            <label>Website<input id="cWebsite" type="url" placeholder="https://..."></label>
+            <button class="primary" type="submit">Save company profile</button>
+          </form>
+          <div id="companyMessage" class="success"></div>
+        </div>
+      </section>
+
+      <section id="recruiterApplicantsPage" class="hidden" aria-labelledby="applicantsTitle">
+        <div class="section-heading">
+          <div><h2 id="applicantsTitle">Applicants</h2><p class="muted">Filter candidates by opening and branch.</p></div>
+        </div>
+        <div class="applicant-filters">
+          <label>Opening<select id="applicantJobFilter"><option value="">All openings</option></select></label>
+          <label>Branch<select id="applicantBranchFilter"><option value="">All branches</option></select></label>
+        </div>
+        <div class="bulk-toolbar">
+          <label class="select-all-label"><input id="selectAllApplicants" type="checkbox"> Select visible applicants</label>
+          <label class="bulk-status-label">Set status
+            <select id="bulkApplicantStatus">
+              <option value="">Choose status</option>
+              <option>Under Review</option>
+              <option>Shortlisted</option>
+              <option>Aptitude Test</option>
+              <option>Technical Interview</option>
+              <option>HR Interview</option>
+              <option>Selected</option>
+              <option>Offer Accepted</option>
+              <option>Offer Declined</option>
+              <option>Rejected</option>
+              <option>Withdrawn</option>
+            </select>
+          </label>
+          <button id="applyBulkStatus" class="small-btn approve" type="button" disabled>Update selected</button>
+          <span id="selectedApplicantCount" class="muted">0 selected</span>
+        </div>
+        <div id="applicants" class="applicant-list"></div>
+      </section>
 
       <div id="adminPanel" class="hidden">
         <div class="grid two">

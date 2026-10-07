@@ -21,19 +21,48 @@ function setVisible(id, visible) {
   $(id).classList.toggle("hidden", !visible);
 }
 
+["sYear", "jYear"].forEach(id => {
+  $(id).max = String(new Date().getFullYear() + 10);
+});
+$("signupYear").max = String(new Date().getFullYear() + 10);
+
+let activeUser = null;
+let recruiterJobs = [];
+let recruiterApplications = [];
+const selectedApplicantIds = new Set();
+const applicationStatuses = [
+  "Applied", "Under Review", "Shortlisted", "Aptitude Test",
+  "Technical Interview", "HR Interview", "Selected", "Offer Accepted",
+  "Offer Declined", "Rejected", "Withdrawn"
+];
+const branches = [
+  "Computer Science", "Information Technology", "Electronics",
+  "Electrical Engineering", "Mechanical Engineering", "Civil Engineering",
+  "Data Science", "Artificial Intelligence", "Chemical Engineering"
+];
+
 async function init() {
   const data = await api("/api/me");
-  if (!data.user) return showLogin();
+  if (!data.user) {
+    if (!activeUser) showLogin();
+    return;
+  }
   showApp(data.user, data.profile);
 }
 
 function showLogin() {
+  activeUser = null;
   setVisible("loginView", true);
+  setVisible("signInPanel", true);
+  setVisible("signUpPanel", false);
   setVisible("appView", false);
   setVisible("logoutBtn", false);
+  setVisible("studentNav", false);
+  setVisible("recruiterNav", false);
 }
 
 function showApp(user, profile) {
+  activeUser = user;
   setVisible("loginView", false);
   setVisible("appView", true);
   setVisible("logoutBtn", true);
@@ -41,14 +70,16 @@ function showApp(user, profile) {
   $("welcomeTitle").textContent = `Welcome, ${user.name}`;
   $("welcomeText").textContent = user.email;
 
-  ["studentPanel","recruiterPanel","adminPanel"].forEach(id => setVisible(id, false));
+  ["studentPanel","studentPipelinePage","recruiterPanel","recruiterApplicantsPage","recruiterCompanyPage","adminPanel"].forEach(id => setVisible(id, false));
+  setVisible("studentNav", user.role === "student");
+  setVisible("recruiterNav", user.role === "recruiter");
   if (user.role === "student") {
-    setVisible("studentPanel", true);
+    showStudentPage(location.hash === "#pipeline" ? "pipeline" : "dashboard");
     fillStudent(profile);
     loadStudent();
     startAutoRefresh(user);
   } else if (user.role === "recruiter") {
-    setVisible("recruiterPanel", true);
+    showRecruiterPage(location.hash === "#applicants" ? "applicants" : location.hash === "#company" ? "company" : "dashboard");
     fillCompany(profile);
     loadRecruiter();
     startAutoRefresh(user);
@@ -58,6 +89,68 @@ function showApp(user, profile) {
     startAutoRefresh(user);
   }
 }
+
+function showRecruiterPage(page) {
+  if (activeUser?.role !== "recruiter") return;
+  const showApplicants = page === "applicants";
+  const showCompany = page === "company";
+  setVisible("recruiterPanel", !showApplicants && !showCompany);
+  setVisible("recruiterApplicantsPage", showApplicants);
+  setVisible("recruiterCompanyPage", showCompany);
+  document.querySelectorAll("#recruiterNav [data-recruiter-page]").forEach(link => {
+    const selected = link.dataset.recruiterPage === page;
+    link.classList.toggle("active", selected);
+    if (selected) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
+  });
+  window.scrollTo(0, 0);
+}
+
+function showStudentPage(page) {
+  if (activeUser?.role !== "student") return;
+  const showPipeline = page === "pipeline";
+  setVisible("studentPanel", !showPipeline);
+  setVisible("studentPipelinePage", showPipeline);
+  document.querySelectorAll("#studentNav [data-student-page]").forEach(link => {
+    const selected = link.dataset.studentPage === page;
+    link.classList.toggle("active", selected);
+    if (selected) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
+  });
+  window.scrollTo(0, 0);
+}
+
+document.addEventListener("click", event => {
+  if (!(event.target instanceof Element)) return;
+  const studentLink = event.target.closest("[data-student-page]");
+  if (studentLink) {
+    event.preventDefault();
+    const page = studentLink.dataset.studentPage;
+    const hash = page === "pipeline" ? "#pipeline" : "#dashboard";
+    if (location.hash !== hash) history.pushState(null, "", hash);
+    showStudentPage(page);
+    return;
+  }
+  const recruiterLink = event.target.closest("[data-recruiter-page]");
+  if (recruiterLink) {
+    event.preventDefault();
+    const page = recruiterLink.dataset.recruiterPage;
+    const hash = page === "applicants" ? "#applicants" : page === "company" ? "#company" : "#dashboard";
+    if (location.hash !== hash) history.pushState(null, "", hash);
+    showRecruiterPage(page);
+  }
+});
+
+function syncStudentPage() {
+  if (activeUser?.role === "student") {
+    showStudentPage(location.hash === "#pipeline" ? "pipeline" : "dashboard");
+  } else if (activeUser?.role === "recruiter") {
+    showRecruiterPage(location.hash === "#applicants" ? "applicants" : location.hash === "#company" ? "company" : "dashboard");
+  }
+}
+
+window.addEventListener("hashchange", syncStudentPage);
+window.addEventListener("popstate", syncStudentPage);
 
 function fillStudent(p) {
   if (!p) return;
@@ -89,6 +182,57 @@ $("loginForm").addEventListener("submit", async (e) => {
   }
 });
 
+function setSignUpRole(role) {
+  const isStudent = role === "student";
+  setVisible("signupStudentFields", isStudent);
+  ["signupBranch", "signupCgpa", "signupYear"].forEach(id => {
+    $(id).required = isStudent;
+  });
+}
+
+$("signupRole").addEventListener("change", () => setSignUpRole($("signupRole").value));
+$("showSignUp").addEventListener("click", () => {
+  $("loginError").textContent = "";
+  $("signUpError").textContent = "";
+  setVisible("signInPanel", false);
+  setVisible("signUpPanel", true);
+  $("signupName").focus();
+});
+$("showSignIn").addEventListener("click", () => {
+  $("signUpError").textContent = "";
+  setVisible("signUpPanel", false);
+  setVisible("signInPanel", true);
+  $("email").focus();
+});
+
+$("signUpForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("signUpError").textContent = "";
+  if (!$("signUpForm").reportValidity()) return;
+  try {
+    const role = $("signupRole").value;
+    const data = await api("/api/register", {
+      method: "POST",
+      body: JSON.stringify({
+        name: $("signupName").value,
+        email: $("signupEmail").value,
+        password: $("signupPassword").value,
+        role,
+        branch: role === "student" ? $("signupBranch").value : undefined,
+        cgpa: role === "student" ? $("signupCgpa").value : undefined,
+        graduation_year: role === "student" ? $("signupYear").value : undefined
+      })
+    });
+    const me = await api("/api/me");
+    e.target.reset();
+    setSignUpRole("student");
+    showApp(data.user, me.profile);
+    toast("Account created");
+  } catch (err) {
+    $("signUpError").textContent = err.message;
+  }
+});
+
 document.querySelectorAll("[data-demo]").forEach(btn => {
   btn.addEventListener("click", () => {
     const [email, password] = btn.dataset.demo.split("|");
@@ -98,12 +242,23 @@ document.querySelectorAll("[data-demo]").forEach(btn => {
 });
 
 $("logoutBtn").addEventListener("click", async () => {
-  await api("/api/logout", { method: "POST" });
-  showLogin();
+  const button = $("logoutBtn");
+  button.disabled = true;
+  try {
+    await api("/api/logout", { method: "POST" });
+    clearInterval(refreshTimer);
+    history.replaceState(null, "", location.pathname + location.search);
+    showLogin();
+  } catch (err) {
+    toast(err.message);
+  } finally {
+    button.disabled = false;
+  }
 });
 
 $("studentProfileForm").addEventListener("submit", async (e) => {
   e.preventDefault();
+  if (!$("studentProfileForm").reportValidity()) return;
   try {
     await api("/api/student/profile", {
       method: "PUT",
@@ -145,13 +300,54 @@ async function loadStudent() {
   `).join("") : `<div class="empty">No approved job openings yet.</div>`;
 
   const apps = await api("/api/student/applications");
-  $("studentApplications").innerHTML = apps.length ? apps.map(a => `
-    <div class="job-card" style="margin-bottom:10px">
-      <strong>${escapeHtml(a.title)}</strong>
-      <div class="muted">${escapeHtml(a.company_name)}</div>
-      <span class="status blue">${escapeHtml(a.status)}</span>
+  const closedStatuses = ["Selected", "Offer Accepted", "Offer Declined", "Rejected", "Withdrawn"];
+  const activeCount = apps.filter(a => !closedStatuses.includes(a.status)).length;
+  const selectedCount = apps.filter(a => ["Selected", "Offer Accepted"].includes(a.status)).length;
+  $("pipelineSummary").innerHTML = `
+    <div class="pipeline-stat"><strong>${apps.length}</strong><span>Total applications</span></div>
+    <div class="pipeline-stat"><strong>${activeCount}</strong><span>In progress</span></div>
+    <div class="pipeline-stat"><strong>${selectedCount}</strong><span>Offers</span></div>
+  `;
+  $("studentApplications").innerHTML = apps.length ? apps.map(a => {
+    const stages = ["Applied", "Screening", "Assessment", "Interviews", "Decision"];
+    const status = a.status;
+    const rejected = ["Rejected", "Withdrawn", "Offer Declined"].includes(status);
+    const selected = ["Selected", "Offer Accepted"].includes(status);
+    const stageIndex = status === "Applied" ? 0
+      : ["Under Review", "Shortlisted"].includes(status) ? 1
+      : status === "Aptitude Test" ? 2
+      : ["Technical Interview", "HR Interview"].includes(status) ? 3
+      : selected ? 4 : 1;
+    const completedStages = rejected ? 1 : stageIndex;
+    const appliedDate = new Date(`${a.applied_at.replace(" ", "T")}Z`);
+    const formattedDate = Number.isNaN(appliedDate.getTime())
+      ? escapeHtml(a.applied_at)
+      : escapeHtml(appliedDate.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }));
+    return `
+      <article class="pipeline-card">
+        <div class="pipeline-card-heading">
+          <div>
+            <span class="company">${escapeHtml(a.company_name)}</span>
+            <h3>${escapeHtml(a.title)}</h3>
+          </div>
+          <span class="pipeline-status ${rejected ? "rejected" : selected ? "selected" : ""}">${escapeHtml(status)}</span>
+        </div>
+        <p class="muted pipeline-date">Applied ${formattedDate}</p>
+        ${rejected
+          ? `<div class="pipeline-rejected">This application has been closed.</div>`
+          : `<ol class="pipeline-stages">${stages.map((stage, index) => `
+            <li class="${index < completedStages ? "complete" : ""} ${index === completedStages ? "current" : ""}">
+              <span class="stage-marker">${index < completedStages ? "✓" : index + 1}</span>
+              <span>${stage}</span>
+            </li>
+          `).join("")}</ol>`}
+      </article>
+    `;
+  }).join("") : `
+    <div class="empty pipeline-empty">
+      You have not applied to any jobs yet. <a href="#dashboard" data-student-page="dashboard">Browse approved openings</a> to get started.
     </div>
-  `).join("") : `<div class="empty">You have not applied to any jobs yet.</div>`;
+  `;
 }
 
 async function applyJob(id) {
@@ -185,6 +381,9 @@ $("companyProfileForm").addEventListener("submit", async (e) => {
 
 $("jobForm").addEventListener("submit", async (e) => {
   e.preventDefault();
+  const selectedDepartments = [...document.querySelectorAll('input[name="jDepartment"]:checked')].map(input => input.value);
+  $("departmentError").textContent = selectedDepartments.length ? "" : "Select at least one eligible branch.";
+  if (!$("jobForm").reportValidity() || !selectedDepartments.length) return;
   try {
     await api("/api/company/jobs", {
       method: "POST",
@@ -192,7 +391,7 @@ $("jobForm").addEventListener("submit", async (e) => {
         title: $("jTitle").value,
         description: $("jDescription").value,
         min_cgpa: $("jCgpa").value,
-        allowed_departments: $("jDepartments").value,
+        allowed_departments: selectedDepartments.join(","),
         graduation_year: $("jYear").value
       })
     });
@@ -205,8 +404,8 @@ $("jobForm").addEventListener("submit", async (e) => {
 });
 
 async function loadRecruiter() {
-  const jobs = await api("/api/company/jobs");
-  $("recruiterJobs").innerHTML = jobs.length ? jobs.map(j => `
+  recruiterJobs = await api("/api/company/jobs");
+  $("recruiterJobs").innerHTML = recruiterJobs.length ? recruiterJobs.map(j => `
     <article class="job-card">
       <h3>${escapeHtml(j.title)}</h3>
       <p class="muted">${escapeHtml(j.description)}</p>
@@ -219,24 +418,123 @@ async function loadRecruiter() {
     </article>
   `).join("") : `<div class="empty">Create your first job posting above.</div>`;
 
-  const apps = await api("/api/company/applications");
-  $("applicants").innerHTML = apps.length ? `
-    <table><thead><tr>
-      <th>Candidate</th><th>Job</th><th>CGPA</th><th>Branch</th><th>Resume</th><th>Status</th>
-    </tr></thead><tbody>
-    ${apps.map(a => `<tr>
-      <td><strong>${escapeHtml(a.student_name)}</strong><br><span class="muted">${escapeHtml(a.email)}</span></td>
-      <td>${escapeHtml(a.title)}</td>
-      <td>${a.cgpa}</td>
-      <td>${escapeHtml(a.branch)}</td>
-      <td>${a.resume_link ? `<a href="${escapeAttr(a.resume_link)}" target="_blank" rel="noreferrer">Open</a>` : "—"}</td>
-      <td><select onchange="updateApplication(${a.id}, this.value)">
-        ${["Applied","Shortlisted","Rejected","Selected"].map(s => `<option ${s === a.status ? "selected" : ""}>${s}</option>`).join("")}
-      </select></td>
-    </tr>`).join("")}
-    </tbody></table>
-  ` : `<div class="empty">No applications yet.</div>`;
+  recruiterApplications = await api("/api/company/applications");
+  for (const id of selectedApplicantIds) {
+    if (!recruiterApplications.some(app => app.id === id)) selectedApplicantIds.delete(id);
+  }
+  renderApplicantFilters();
+  renderApplicants();
 }
+
+function renderApplicantFilters() {
+  const jobFilter = $("applicantJobFilter");
+  const selectedJob = jobFilter.value;
+  jobFilter.innerHTML = `<option value="">All openings</option>${recruiterJobs.map(job =>
+    `<option value="${job.id}">${escapeHtml(job.title)}</option>`
+  ).join("")}`;
+  if (recruiterJobs.some(job => String(job.id) === selectedJob)) jobFilter.value = selectedJob;
+
+  const branchFilter = $("applicantBranchFilter");
+  const selectedBranch = branchFilter.value;
+  const availableBranches = [...new Set(recruiterApplications.map(app => app.branch))].sort();
+  branchFilter.innerHTML = `<option value="">All branches</option>${availableBranches.map(branch =>
+    `<option value="${escapeAttr(branch)}">${escapeHtml(branch)}</option>`
+  ).join("")}`;
+  if (availableBranches.includes(selectedBranch)) branchFilter.value = selectedBranch;
+}
+
+function renderApplicants() {
+  const jobId = $("applicantJobFilter").value;
+  const branch = $("applicantBranchFilter").value;
+  const filtered = recruiterApplications.filter(app =>
+    (!jobId || String(app.job_id) === jobId) && (!branch || app.branch === branch)
+  );
+  const visibleIds = filtered.map(app => app.id);
+  $("applicants").innerHTML = filtered.length ? filtered.map(app => `
+    <article class="applicant-card">
+      <div class="applicant-card-heading">
+        <label class="applicant-select-label"><input class="applicant-select" type="checkbox" value="${app.id}" ${selectedApplicantIds.has(app.id) ? "checked" : ""}> Select applicant</label>
+        <div><h3>${escapeHtml(app.student_name)}</h3><span class="muted">${escapeHtml(app.email)}</span></div>
+        <span class="pill">${escapeHtml(app.title)}</span>
+      </div>
+      <div class="applicant-profile">
+        <div><span class="muted">Branch</span><strong>${escapeHtml(app.branch)}</strong></div>
+        <div><span class="muted">CGPA</span><strong>${escapeHtml(app.cgpa)}</strong></div>
+        <div><span class="muted">Graduation</span><strong>${escapeHtml(app.graduation_year)}</strong></div>
+        <div><span class="muted">Resume</span>${app.resume_link
+          ? `<a href="${escapeAttr(app.resume_link)}" target="_blank" rel="noreferrer">View profile</a>`
+          : `<strong>Not provided</strong>`}</div>
+      </div>
+      <label class="applicant-status">Application status
+        <select onchange="updateApplication(${app.id}, this.value)">
+          ${applicationStatuses.map(status =>
+            `<option ${status === app.status ? "selected" : ""}>${status}</option>`
+          ).join("")}
+        </select>
+      </label>
+    </article>
+  `).join("") : `<div class="empty">${recruiterApplications.length ? "No applicants match these filters." : "No applications yet."}</div>`;
+  document.querySelectorAll(".applicant-select").forEach(input => {
+    input.addEventListener("change", () => {
+      const id = Number(input.value);
+      if (input.checked) selectedApplicantIds.add(id);
+      else selectedApplicantIds.delete(id);
+      updateBulkToolbar(visibleIds);
+    });
+  });
+  updateBulkToolbar(visibleIds);
+}
+
+["applicantJobFilter", "applicantBranchFilter"].forEach(id => {
+  $(id).addEventListener("change", renderApplicants);
+});
+
+function updateBulkToolbar(visibleIds) {
+  const selectAll = $("selectAllApplicants");
+  const visibleSelected = visibleIds.filter(id => selectedApplicantIds.has(id)).length;
+  selectAll.checked = visibleIds.length > 0 && visibleSelected === visibleIds.length;
+  selectAll.indeterminate = visibleSelected > 0 && visibleSelected < visibleIds.length;
+  $("selectedApplicantCount").textContent = `${selectedApplicantIds.size} selected`;
+  $("applyBulkStatus").disabled = selectedApplicantIds.size === 0 || !$("bulkApplicantStatus").value;
+}
+
+$("selectAllApplicants").addEventListener("change", () => {
+  const jobId = $("applicantJobFilter").value;
+  const branch = $("applicantBranchFilter").value;
+  const visible = recruiterApplications.filter(app =>
+    (!jobId || String(app.job_id) === jobId) && (!branch || app.branch === branch)
+  );
+  visible.forEach(app => {
+    if ($("selectAllApplicants").checked) selectedApplicantIds.add(app.id);
+    else selectedApplicantIds.delete(app.id);
+  });
+  renderApplicants();
+});
+
+$("bulkApplicantStatus").addEventListener("change", () => {
+  const visibleIds = [...document.querySelectorAll(".applicant-select")].map(input => Number(input.value));
+  updateBulkToolbar(visibleIds);
+});
+
+$("applyBulkStatus").addEventListener("click", async () => {
+  const ids = [...selectedApplicantIds];
+  const status = $("bulkApplicantStatus").value;
+  if (!ids.length || !status) return;
+  $("applyBulkStatus").disabled = true;
+  try {
+    const result = await api("/api/company/applications/bulk-status", {
+      method: "PUT",
+      body: JSON.stringify({ ids, status })
+    });
+    selectedApplicantIds.clear();
+    $("bulkApplicantStatus").value = "";
+    toast(`${result.updated} applicant statuses updated`);
+    await loadRecruiter();
+  } catch (err) {
+    toast(err.message);
+    updateBulkToolbar([...document.querySelectorAll(".applicant-select")].map(input => Number(input.value)));
+  }
+});
 
 async function updateApplication(id, status) {
   try {
@@ -245,8 +543,10 @@ async function updateApplication(id, status) {
       body: JSON.stringify({ status })
     });
     toast("Candidate status updated");
+    await loadRecruiter();
   } catch (err) {
     toast(err.message);
+    await loadRecruiter();
   }
 }
 window.updateApplication = updateApplication;
