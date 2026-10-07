@@ -14,6 +14,7 @@
     <nav id="studentNav" class="page-nav hidden" aria-label="Student navigation">
       <a href="#dashboard" data-student-page="dashboard">Dashboard</a>
       <a href="#pipeline" data-student-page="pipeline">Application pipeline</a>
+      <a href="#profile" data-student-page="profile">Profile</a>
     </nav>
     <nav id="recruiterNav" class="page-nav hidden" aria-label="Recruiter navigation">
       <a href="#dashboard" data-recruiter-page="dashboard">Dashboard</a>
@@ -66,15 +67,6 @@
               <label>Branch
                 <select id="signupBranch" required>
                   <option value="">Select your branch</option>
-                  <option>Computer Science</option>
-                  <option>Information Technology</option>
-                  <option>Electronics</option>
-                  <option>Electrical Engineering</option>
-                  <option>Mechanical Engineering</option>
-                  <option>Civil Engineering</option>
-                  <option>Data Science</option>
-                  <option>Artificial Intelligence</option>
-                  <option>Chemical Engineering</option>
                 </select>
               </label>
               <label>CGPA<input id="signupCgpa" type="number" min="0" max="10" step="0.01" required></label>
@@ -98,24 +90,31 @@
       </div>
 
       <div id="studentPanel" class="hidden">
-        <div>
-          <div class="card">
-            <h2>My Profile</h2>
-            <form id="studentProfileForm" class="form-grid">
-              <label>Branch<input id="sBranch" required></label>
-              <label>CGPA<input id="sCgpa" type="number" min="0" max="10" step="0.01" required></label>
-              <label>Graduation year<input id="sYear" type="number" min="2000" max="2036" step="1" required></label>
-              <label>Resume link<input id="sResume" type="url" placeholder="https://..."></label>
-              <button class="primary" type="submit">Save profile</button>
-            </form>
-            <div id="studentMessage" class="success"></div>
-          </div>
-        </div>
         <div class="section-heading">
           <div><h2>Approved openings</h2><p class="muted">Only admin-approved jobs are shown here.</p></div>
         </div>
         <div id="jobsList" class="cards"></div>
       </div>
+
+      <section id="studentProfilePage" class="hidden" aria-labelledby="studentProfileTitle">
+        <div class="section-heading">
+          <div><h2 id="studentProfileTitle">Student profile</h2><p class="muted">Manage your academic details and resume.</p></div>
+        </div>
+        <div class="card profile-card">
+          <form id="studentProfileForm" class="form-grid">
+            <label>Branch
+              <select id="sBranch" required>
+                <option value="">Select your branch</option>
+              </select>
+            </label>
+            <label>CGPA<input id="sCgpa" type="number" min="0" max="10" step="0.01" required></label>
+            <label>Graduation year<input id="sYear" type="number" min="2000" max="2036" step="1" required></label>
+            <label>Resume link<input id="sResume" type="url" placeholder="https://..."></label>
+            <button class="primary" type="submit">Save profile</button>
+          </form>
+          <div id="studentMessage" class="success"></div>
+        </div>
+      </section>
 
       <section id="studentPipelinePage" class="hidden" aria-labelledby="pipelineTitle">
         <div class="pipeline-heading">

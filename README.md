@@ -6,7 +6,7 @@ A beginner-friendly three-tier, role-based campus recruitment portal built for t
 
 ### Student Applicant
 - Register as a student or sign in
-- Manage profile: branch, CGPA, graduation year and resume link
+- Manage profile on a dedicated page with selectable branch, CGPA, graduation year and resume link
 - Browse approved job openings
 - Server-side eligibility checking
 - Apply to eligible jobs

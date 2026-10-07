@@ -41,6 +41,16 @@ const branches = [
   "Data Science", "Artificial Intelligence", "Chemical Engineering"
 ];
 
+["sBranch", "signupBranch"].forEach(id => {
+  const select = $(id);
+  branches.forEach(branch => {
+    const option = document.createElement("option");
+    option.value = branch;
+    option.textContent = branch;
+    select.append(option);
+  });
+});
+
 async function init() {
   const data = await api("/api/me");
   if (!data.user) {
@@ -70,11 +80,11 @@ function showApp(user, profile) {
   $("welcomeTitle").textContent = `Welcome, ${user.name}`;
   $("welcomeText").textContent = user.email;
 
-  ["studentPanel","studentPipelinePage","recruiterPanel","recruiterApplicantsPage","recruiterCompanyPage","adminPanel"].forEach(id => setVisible(id, false));
+  ["studentPanel","studentPipelinePage","studentProfilePage","recruiterPanel","recruiterApplicantsPage","recruiterCompanyPage","adminPanel"].forEach(id => setVisible(id, false));
   setVisible("studentNav", user.role === "student");
   setVisible("recruiterNav", user.role === "recruiter");
   if (user.role === "student") {
-    showStudentPage(location.hash === "#pipeline" ? "pipeline" : "dashboard");
+    showStudentPage(location.hash === "#pipeline" ? "pipeline" : location.hash === "#profile" ? "profile" : "dashboard");
     fillStudent(profile);
     loadStudent();
     startAutoRefresh(user);
@@ -109,8 +119,10 @@ function showRecruiterPage(page) {
 function showStudentPage(page) {
   if (activeUser?.role !== "student") return;
   const showPipeline = page === "pipeline";
-  setVisible("studentPanel", !showPipeline);
+  const showProfile = page === "profile";
+  setVisible("studentPanel", !showPipeline && !showProfile);
   setVisible("studentPipelinePage", showPipeline);
+  setVisible("studentProfilePage", showProfile);
   document.querySelectorAll("#studentNav [data-student-page]").forEach(link => {
     const selected = link.dataset.studentPage === page;
     link.classList.toggle("active", selected);
@@ -126,7 +138,7 @@ document.addEventListener("click", event => {
   if (studentLink) {
     event.preventDefault();
     const page = studentLink.dataset.studentPage;
-    const hash = page === "pipeline" ? "#pipeline" : "#dashboard";
+    const hash = page === "pipeline" ? "#pipeline" : page === "profile" ? "#profile" : "#dashboard";
     if (location.hash !== hash) history.pushState(null, "", hash);
     showStudentPage(page);
     return;
@@ -143,7 +155,7 @@ document.addEventListener("click", event => {
 
 function syncStudentPage() {
   if (activeUser?.role === "student") {
-    showStudentPage(location.hash === "#pipeline" ? "pipeline" : "dashboard");
+    showStudentPage(location.hash === "#pipeline" ? "pipeline" : location.hash === "#profile" ? "profile" : "dashboard");
   } else if (activeUser?.role === "recruiter") {
     showRecruiterPage(location.hash === "#applicants" ? "applicants" : location.hash === "#company" ? "company" : "dashboard");
   }
