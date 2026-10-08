@@ -62,12 +62,3 @@ The SQLite database is created and seeded automatically on first run. New studen
 - Eligibility is checked on the server, not only in the browser.
 - Admin approval is required before companies/jobs become visible to students.
 
-## Suggested GitHub Submission
-
-Create a public repository named `campus-placement-portal`, upload all project files except `node_modules`, and submit the repository URL.
-
-Example:
-
-```text
-https://github.com/YOUR-USERNAME/campus-placement-portal
-```
